@@ -1,0 +1,8 @@
+{
+  "name": "safe-event-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
