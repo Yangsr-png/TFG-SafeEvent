@@ -4,9 +4,9 @@
  * Estados posibles de una emergencia
  */
 export enum AlertStatus {
-  PENDING = 'PENDING',   
-  ASSIGNED = 'ASSIGNED',   
-  RESOLVED = 'RESOLVED',   
+  PENDING = 'PENDING',     // Alerta recibida, buscando médico
+  ASSIGNED = 'ASSIGNED',   // Médico en camino
+  RESOLVED = 'RESOLVED',   // Falsa alarma o emergencia atendida
 }
 
 /**
