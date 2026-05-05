@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import type { PanicAlertPayload, Coordinates } from '@safe-event/shared-types'; // Usamos type para la compilación
 
-export default function PanicButton() {
+    interface PanicButtonProps {
+        userId: string;
+    }
+
+export default function PanicButton({ userId }: PanicButtonProps){
   const [isPressing, setIsPressing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusMsg, setStatusMsg] = useState('Mantén pulsado 3 segundos para emergencias');
@@ -82,7 +86,7 @@ export default function PanicButton() {
         const battery = await getBatteryLevel();
 
         const payload: PanicAlertPayload = {
-          userId: "user-qr-12345",
+          userId: userId,
           location: coords,
           batteryLevel: battery,
           timestamp: now,
