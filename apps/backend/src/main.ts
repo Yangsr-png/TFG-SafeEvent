@@ -3,11 +3,10 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableCors(); // Habilita CORS para peticiones HTTP también
 
-  // EL DETECTOR DE MENTIRAS:
-  console.log(`--- DEBUG --- Apuntando a: ${process.env.DB_HOST}:${process.env.DB_PORT}`);
-  console.log(`--- DEBUG --- Usuario: '${process.env.DB_USER}' | Pass: '${process.env.DB_PASS}'`);
-
-  await app.listen(3000);
+  // Forzamos a escuchar en 0.0.0.0 para que acepte conexiones de cualquier IP local
+  await app.listen(3000, '0.0.0.0');
+  console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
