@@ -1,72 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { type DashboardAlertEvent, AlertStatus } from '@safe-event/shared-types';
+import { useSocket } from '../contexts/SocketContext'; // <-- Importamos la conexión real
 
-// Coordenadas centrales ficticias (Ej: Un recinto de conciertos en Madrid)
 const EVENT_CENTER = { lat: 40.4240, lng: -3.6735 };
 
-// FIX: Uso de color hexadecimal nativo en el fill para evitar que 
-// Tailwind elimine la clase de color durante la compilación.
 const createCustomIcon = (status: AlertStatus) => {
   const isPending = status === AlertStatus.PENDING;
-  // Mantenemos la clase de Tailwind solo para la animación, no para el color
   const animationClass = isPending ? 'animate-bounce' : '';
-  
-  // fill="#dc2626" inyecta el color rojo de emergencia de forma inquebrantable
   const svgPin = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#dc2626" class="w-10 h-10 drop-shadow-2xl ${animationClass}">
       <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
     </svg>
   `;
-
   return L.divIcon({
-    className: 'bg-transparent border-none', 
+    className: 'bg-transparent border-none',
     html: svgPin,
     iconSize: [40, 40],
-    iconAnchor: [20, 40], 
-    popupAnchor: [0, -40] 
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40]
   });
 };
 
 export default function AdminDashboard() {
   const [alerts, setAlerts] = useState<DashboardAlertEvent[]>([]);
+  const { socket, isConnected } = useSocket(); // <-- Usamos el socket
 
-  // Simulador de inyección de datos (Lo que hará el WebSocket en el futuro)
-  const injectMockAlert = () => {
-    const newAlert: DashboardAlertEvent = {
-      alertId: `ALRT-${Math.floor(Math.random() * 10000)}`,
-      userId: `USR-QR-${Math.floor(Math.random() * 1000)}`,
-      location: {
-        latitude: EVENT_CENTER.lat + (Math.random() - 0.5) * 0.005, // Dispersión aleatoria
-        longitude: EVENT_CENTER.lng + (Math.random() - 0.5) * 0.005,
-        accuracy: Math.floor(Math.random() * 15) + 5, // Entre 5 y 20 metros
-      },
-      status: AlertStatus.PENDING,
-      createdAt: Date.now(),
+  // 1. ESCUCHAMOS EVENTOS REALES DEL SERVIDOR
+  useEffect(() => {
+    if (!socket) return;
+
+    // Cuando el backend emita una nueva alerta
+    socket.on('new_panic_alert_broadcast', (newAlert: DashboardAlertEvent) => {
+      setAlerts((prev) => {
+        // Evitamos duplicados si el evento llega dos veces
+        if (prev.some(a => a.userId === newAlert.userId)) return prev;
+        return [...prev, newAlert];
+      });
+      // Feedback auditivo/háptico para el administrador
+      if (window.navigator.vibrate) window.navigator.vibrate([200, 100, 200]);
+    });
+
+    return () => {
+      socket.off('new_panic_alert_broadcast');
     };
-
-    setAlerts((prev) => [...prev, newAlert]);
-  };
+  }, [socket]);
 
   const resolveAlert = (id: string) => {
     setAlerts((prev) => prev.filter((a) => a.alertId !== id));
+    // TODO Futuro: Emitir al backend que esta alerta está resuelta
   };
 
   return (
     <div className="flex h-screen bg-gray-900 text-white">
-      
-      {/* Panel Lateral: Lista de Alertas */}
-      <div className="w-1/3 flex flex-col border-r border-gray-700">
-        <div className="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
+      {/* Panel Lateral */}
+      <div className="w-1/3 flex flex-col border-r border-gray-700 relative">
+        {/* Indicador de conexión del Dashboard */}
+        {!isConnected && (
+          <div className="absolute top-0 w-full bg-red-600 text-white text-center py-1 text-xs font-bold z-50 animate-pulse">
+            DESCONECTADO DEL SERVIDOR - RECONECTANDO...
+          </div>
+        )}
+
+        <div className="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center mt-6">
           <h1 className="text-xl font-bold text-red-500">Triage Médico</h1>
-          <button 
-            onClick={injectMockAlert}
-            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm font-semibold transition-colors"
-          >
-            + Simular Alerta
-          </button>
+          <span className="px-3 py-1 bg-gray-700 rounded text-sm text-gray-300">
+            Total: {alerts.length}
+          </span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -77,17 +79,11 @@ export default function AdminDashboard() {
               <div key={alert.alertId} className="bg-gray-800 p-4 rounded-lg border-l-4 border-red-500 shadow-md">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold">{alert.alertId}</h3>
-                    <p className="text-xs text-gray-400 mt-1">Usuario: {alert.userId}</p>
-                    <p className="text-xs text-gray-400">Precisión GPS: ±{alert.location.accuracy}m</p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {new Date(alert.createdAt).toLocaleTimeString()}
-                    </p>
+                    <h3 className="font-bold text-red-400">{alert.userId}</h3>
+                    <p className="text-xs text-gray-400 mt-1">Status: {alert.status}</p>
+                    <p className="text-xs text-gray-400">Precisión: ±{Math.round(alert.location.accuracy)}m</p>
                   </div>
-                  <button 
-                    onClick={() => resolveAlert(alert.alertId)}
-                    className="text-xs bg-green-600 hover:bg-green-500 px-2 py-1 rounded"
-                  >
+                  <button onClick={() => resolveAlert(alert.alertId)} className="text-xs bg-green-600 hover:bg-green-500 px-2 py-1 rounded">
                     Resolver
                   </button>
                 </div>
@@ -99,39 +95,22 @@ export default function AdminDashboard() {
 
       {/* Área del Mapa */}
       <div className="w-2/3 relative z-0">
-        <MapContainer 
-          center={[EVENT_CENTER.lat, EVENT_CENTER.lng]} 
-          zoom={16} 
-          className="w-full h-full"
-        >
-          {/* Capa de mapa oscuro de CartoDB (ideal para dashboards) */}
+        <MapContainer center={[EVENT_CENTER.lat, EVENT_CENTER.lng]} zoom={16} className="w-full h-full">
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            attribution='&copy; OSM contributors'
           />
-
-          {/* Renderizado de Pines */}
           {alerts.map((alert) => (
-            <Marker 
-              key={alert.alertId} 
-              position={[alert.location.latitude, alert.location.longitude]}
-              icon={createCustomIcon(alert.status)}
-            >
+            <Marker key={alert.alertId} position={[alert.location.latitude, alert.location.longitude]} icon={createCustomIcon(alert.status)}>
               <Popup className="custom-popup">
                 <div className="text-gray-800">
-                  <strong className="block text-red-600 text-lg">{alert.alertId}</strong>
-                  <span>Asistente: {alert.userId}</span><br/>
-                  <span className="text-xs text-gray-500">
-                    Lat: {alert.location.latitude.toFixed(5)} <br/>
-                    Lng: {alert.location.longitude.toFixed(5)}
-                  </span>
+                  <strong className="block text-red-600 text-lg">SOS de {alert.userId}</strong>
                 </div>
               </Popup>
             </Marker>
           ))}
         </MapContainer>
       </div>
-
     </div>
   );
 }

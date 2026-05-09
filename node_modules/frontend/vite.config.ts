@@ -28,5 +28,9 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  // AÑADE ESTO: Evita que Vite pre-empaquete tu librería local del monorepo
+  optimizeDeps: {
+    exclude: ['@safe-event/shared-types']
+  }
 })

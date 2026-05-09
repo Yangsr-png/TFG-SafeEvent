@@ -8,23 +8,23 @@ import {
 @Entity('panic_alerts') // Nombre real de la tabla en PostgreSQL
 export class Alert {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
-  userId: string;
+  userId!: string;
 
   @Column({ nullable: true })
-  eventId: string;
+  eventId!: string;
 
   @Column('float')
-  latitude: number;
+  latitude!: number;
 
   @Column('float')
-  longitude: number;
+  longitude!: number;
 
   @Column({ default: 'RECEIVED' })
-  status: string;
+  status!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }

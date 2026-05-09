@@ -24,30 +24,39 @@ export default function PanicButton({ userId }: PanicButtonProps){
   const [statusMsg, setStatusMsg] = useState('Mantén pulsado 3 segundos para emergencias');
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
 
-  // --- NUEVA INTEGRACIÓN SOCKET.IO ---
   const { socket, isConnected, activeAlert } = useSocket();
-  // -----------------------------------
 
   const timerRef = useRef<number | null>(null);
   const intervalRef = useRef<number | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const lastBroadcastTimeRef = useRef<number>(0);
 
-  // Si Redis nos avisa al cargar la página de que ya estábamos en emergencia, restauramos el estado visual
+  // Restauración de sesión si Redis avisa
   useEffect(() => {
     if (activeAlert && !isEmergencyActive) {
       setIsEmergencyActive(true);
       setStatusMsg('⚠️ Sesión restaurada: La alerta sigue activa.');
-      // Opcional: Podrías llamar a startEmergencyTracking() aquí si quieres que siga enviando GPS tras recargar
     }
   }, [activeAlert]);
 
+  // Limpieza al desmontar
   useEffect(() => {
     return () => {
       clearTimers();
       stopTracking();
     };
   }, []);
+
+  // Control dinámico de estado de red durante la emergencia
+  useEffect(() => {
+    if (isEmergencyActive) {
+      if (!isConnected) {
+        setStatusMsg('⚠️ Buscando red para transmitir coordenadas...');
+      } else {
+        setStatusMsg('🚨 Transmitiendo coordenadas en vivo');
+      }
+    }
+  }, [isConnected, isEmergencyActive]);
 
   const clearTimers = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -76,7 +85,7 @@ export default function PanicButton({ userId }: PanicButtonProps){
 
   const startEmergencyTracking = () => {
     setIsEmergencyActive(true);
-    setStatusMsg('🚨 Obteniendo coordenadas exactas...');
+    setStatusMsg(isConnected ? '🚨 Obteniendo coordenadas exactas...' : '⚠️ Esperando red para transmitir...');
     
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]);
 
@@ -105,23 +114,20 @@ export default function PanicButton({ userId }: PanicButtonProps){
         const battery = await getBatteryLevel();
 
         const payload: PanicAlertPayload = {
-          userId: userId, // Usamos la prop que recibe el componente
+          userId: userId,
           location: coords,
           batteryLevel: battery,
           timestamp: now,
         };
 
-        setStatusMsg(`🚨 Emergencia Activa. Posición actualizada (Precisión: ${Math.round(coords.accuracy)}m)`);
-        
-        // --- LA MAGIA SUCEDE AQUÍ ---
+        // LÓGICA DE TÚNEL: Solo transmitimos si hay socket online
         if (socket && isConnected) {
           socket.emit('send_panic_alert', payload);
-          console.log('📡 Payload real enviado al backend de NestJS:', payload);
+          setStatusMsg(`🚨 Posición enviada (Precisión: ${Math.round(coords.accuracy)}m)`);
+          console.log('📡 Payload enviado:', payload);
         } else {
-          console.warn('⚠️ No hay conexión al servidor. Intentando re-conectar...');
-          setStatusMsg('⚠️ Sin conexión al servidor. Reintentando...');
+          console.warn('⚠️ Sin cobertura temporal. Los datos se enviarán al recuperar la red.', payload);
         }
-        // -----------------------------
       },
       (error) => {
         console.error('Error GPS:', error);
@@ -141,9 +147,6 @@ export default function PanicButton({ userId }: PanicButtonProps){
     setProgress(0);
     lastBroadcastTimeRef.current = 0;
     setStatusMsg('Emergencia cancelada. Mantén pulsado 3 segundos para emergencias');
-    
-    // Opcional: Avisar al backend de que se canceló la alerta para borrarla de Redis
-    // if (socket) socket.emit('resolve_panic_alert', { userId });
   };
 
   const handlePressStart = () => {
@@ -173,14 +176,24 @@ export default function PanicButton({ userId }: PanicButtonProps){
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      {/* Indicador de conexión de red */}
-      <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-sm font-bold text-white ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}>
-        {isConnected ? '🟢 Server Online' : '🔴 Server Offline'}
+    <div className={`flex flex-col items-center justify-center min-h-screen p-4 transition-colors duration-500 ${!isConnected && isEmergencyActive ? 'bg-orange-600' : 'bg-gray-100'}`}>
+      
+      {/* Banner de túnel / Pérdida de red */}
+      {!isConnected && isEmergencyActive && (
+        <div className="absolute top-0 w-full bg-red-800 text-white text-center py-4 px-2 shadow-lg z-50 flex flex-col items-center justify-center animate-pulse">
+          <span className="text-xl font-bold">⚠️ SIN COBERTURA ⚠️</span>
+          <span className="text-sm">Sigue buscando señal. Tus coordenadas se enviarán automáticamente en cuanto recuperes la red.</span>
+        </div>
+      )}
+
+      {/* Indicador de conexión general */}
+      <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-sm font-bold text-white shadow-md ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}>
+        {isConnected ? '🟢 En línea' : '🔴 Offline'}
       </div>
 
       <div 
-        className={`relative flex items-center justify-center w-64 h-64 rounded-full shadow-xl select-none transition-colors duration-500 ${isEmergencyActive ? 'bg-red-200 animate-pulse' : 'bg-red-100'}`}
+        className={`relative flex items-center justify-center w-64 h-64 rounded-full shadow-2xl select-none transition-all duration-500 
+          ${isEmergencyActive ? (isConnected ? 'bg-red-200 animate-pulse scale-105' : 'bg-orange-800 opacity-80') : 'bg-red-100'}`}
         onMouseDown={handlePressStart}
         onMouseUp={handlePressEnd}
         onMouseLeave={handlePressEnd}
@@ -199,24 +212,26 @@ export default function PanicButton({ userId }: PanicButtonProps){
 
         <button 
           className={`absolute w-48 h-48 rounded-full text-white font-bold text-2xl uppercase tracking-wider transition-transform duration-200 
-            ${isEmergencyActive ? 'bg-red-700 scale-95 shadow-inner' : 'bg-red-600 hover:scale-105'} 
+            ${isEmergencyActive 
+              ? (isConnected ? 'bg-red-700 shadow-inner' : 'bg-orange-500 shadow-inner') 
+              : 'bg-red-600 hover:scale-105'} 
             ${isPressing && !isEmergencyActive ? 'scale-95' : ''}`}
         >
-          {isEmergencyActive ? 'TRANSMITIENDO' : 'SOS'}
+          {isEmergencyActive ? (isConnected ? 'TRANSMITIENDO' : 'ESPERANDO RED') : 'SOS'}
         </button>
       </div>
 
       <div className="mt-8 text-center min-h-[5rem]">
-        <p className={`text-lg font-medium ${isEmergencyActive ? 'text-red-600 font-bold' : 'text-gray-700'}`}>
+        <p className={`text-lg font-medium ${isEmergencyActive ? (isConnected ? 'text-red-600 font-bold' : 'text-white font-bold') : 'text-gray-700'}`}>
           {statusMsg}
         </p>
         
         {isEmergencyActive && (
           <button 
             onClick={cancelEmergency}
-            className="mt-4 px-6 py-2 bg-gray-800 text-white rounded-md font-semibold hover:bg-gray-900"
+            className="mt-6 px-6 py-3 bg-gray-800 text-white rounded-md font-semibold hover:bg-gray-900 shadow-lg w-full max-w-xs"
           >
-            Simular: Cancelar Alerta (Falsa Alarma)
+            Cancelar Alerta
           </button>
         )}
       </div>
