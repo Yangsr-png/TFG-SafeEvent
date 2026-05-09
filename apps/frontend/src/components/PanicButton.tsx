@@ -1,9 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
-import type { PanicAlertPayload, Coordinates } from '@safe-event/shared-types'; // Usamos type para la compilación
+import { useSocket } from '../contexts/SocketContext'; 
 
-    interface PanicButtonProps {
-        userId: string;
-    }
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+}
+
+interface PanicAlertPayload {
+  userId: string;
+  location: Coordinates;
+  batteryLevel: number;
+  timestamp: number;
+}
+
+interface PanicButtonProps {
+  userId: string;
+}
 
 export default function PanicButton({ userId }: PanicButtonProps){
   const [isPressing, setIsPressing] = useState(false);
@@ -11,15 +24,24 @@ export default function PanicButton({ userId }: PanicButtonProps){
   const [statusMsg, setStatusMsg] = useState('Mantén pulsado 3 segundos para emergencias');
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
 
-  // Referencias para temporizadores y tracking
+  // --- NUEVA INTEGRACIÓN SOCKET.IO ---
+  const { socket, isConnected, activeAlert } = useSocket();
+  // -----------------------------------
+
   const timerRef = useRef<number | null>(null);
   const intervalRef = useRef<number | null>(null);
   const watchIdRef = useRef<number | null>(null);
-  
-  // Referencia CLAVE para el Throttling (evita re-renderizados)
   const lastBroadcastTimeRef = useRef<number>(0);
 
-  // Limpieza total al desmontar el componente (vital para no dejar procesos zombis chupando batería)
+  // Si Redis nos avisa al cargar la página de que ya estábamos en emergencia, restauramos el estado visual
+  useEffect(() => {
+    if (activeAlert && !isEmergencyActive) {
+      setIsEmergencyActive(true);
+      setStatusMsg('⚠️ Sesión restaurada: La alerta sigue activa.');
+      // Opcional: Podrías llamar a startEmergencyTracking() aquí si quieres que siga enviando GPS tras recargar
+    }
+  }, [activeAlert]);
+
   useEffect(() => {
     return () => {
       clearTimers();
@@ -56,37 +78,34 @@ export default function PanicButton({ userId }: PanicButtonProps){
     setIsEmergencyActive(true);
     setStatusMsg('🚨 Obteniendo coordenadas exactas...');
     
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]); // Patrón SOS
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]);
 
     if (!navigator.geolocation) {
       setStatusMsg('Error Crítico: Tu navegador no soporta geolocalización.');
       return;
     }
 
-    // Arrancamos el seguimiento continuo
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (position) => {
         const now = Date.now();
-        const THROTTLE_MS = 5000; // Límite: 1 envío cada 5 segundos
+        const THROTTLE_MS = 5000;
 
-        // LÓGICA DE THROTTLE: Si no han pasado 5 segundos, ignoramos esta coordenada
         if (now - lastBroadcastTimeRef.current < THROTTLE_MS) {
           return; 
         }
 
-        // Actualizamos el reloj para el próximo envío
         lastBroadcastTimeRef.current = now;
 
         const coords: Coordinates = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy, // Margen de error en metros
+          accuracy: position.coords.accuracy,
         };
 
         const battery = await getBatteryLevel();
 
         const payload: PanicAlertPayload = {
-          userId: userId,
+          userId: userId, // Usamos la prop que recibe el componente
           location: coords,
           batteryLevel: battery,
           timestamp: now,
@@ -94,17 +113,24 @@ export default function PanicButton({ userId }: PanicButtonProps){
 
         setStatusMsg(`🚨 Emergencia Activa. Posición actualizada (Precisión: ${Math.round(coords.accuracy)}m)`);
         
-        // Aquí conectaremos Socket.io más adelante
-        console.log('📡 [THROTTLED WEBSOCKET SIMULATION] Enviando payload:', payload);
+        // --- LA MAGIA SUCEDE AQUÍ ---
+        if (socket && isConnected) {
+          socket.emit('send_panic_alert', payload);
+          console.log('📡 Payload real enviado al backend de NestJS:', payload);
+        } else {
+          console.warn('⚠️ No hay conexión al servidor. Intentando re-conectar...');
+          setStatusMsg('⚠️ Sin conexión al servidor. Reintentando...');
+        }
+        // -----------------------------
       },
       (error) => {
         console.error('Error GPS:', error);
         setStatusMsg('⚠️ Buscando señal GPS... muévete a una zona abierta si puedes.');
       },
       { 
-        enableHighAccuracy: true, // Requisito innegociable para emergencias médicas
-        maximumAge: 0,            // No queremos posiciones cacheadas antiguas
-        timeout: 10000            // Si tarda más de 10s, lanza error para poder reintentar
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000 
       }
     );
   };
@@ -115,11 +141,13 @@ export default function PanicButton({ userId }: PanicButtonProps){
     setProgress(0);
     lastBroadcastTimeRef.current = 0;
     setStatusMsg('Emergencia cancelada. Mantén pulsado 3 segundos para emergencias');
-    console.log('🛑 Rastreo detenido y temporizadores limpios.');
+    
+    // Opcional: Avisar al backend de que se canceló la alerta para borrarla de Redis
+    // if (socket) socket.emit('resolve_panic_alert', { userId });
   };
 
   const handlePressStart = () => {
-    if (isEmergencyActive) return; // Si ya está activa, no hacemos nada
+    if (isEmergencyActive) return;
 
     setIsPressing(true);
     setStatusMsg('Manteniendo pulsado...');
@@ -146,8 +174,11 @@ export default function PanicButton({ userId }: PanicButtonProps){
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      
-      {/* Botón Principal SOS */}
+      {/* Indicador de conexión de red */}
+      <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-sm font-bold text-white ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}>
+        {isConnected ? '🟢 Server Online' : '🔴 Server Offline'}
+      </div>
+
       <div 
         className={`relative flex items-center justify-center w-64 h-64 rounded-full shadow-xl select-none transition-colors duration-500 ${isEmergencyActive ? 'bg-red-200 animate-pulse' : 'bg-red-100'}`}
         onMouseDown={handlePressStart}
@@ -180,7 +211,6 @@ export default function PanicButton({ userId }: PanicButtonProps){
           {statusMsg}
         </p>
         
-        {/* Botón de control para pruebas (en producción solo el médico debería poder cancelar) */}
         {isEmergencyActive && (
           <button 
             onClick={cancelEmergency}
