@@ -1,0 +1,9 @@
+{
+  "name": "@safe-event/shared-types",
+  "version": "1.0.0",
+  "description": "Contrato de tipos e interfaces para Backend y Frontend",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc"
+  }
+}
