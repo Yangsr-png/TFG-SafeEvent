@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeEvent - QA Chaos Tester</title>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 2rem; background: #f4f4f9; }
+    .container { max-width: 600px; margin: 0 auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    button { width: 100%; padding: 1.5rem; font-size: 1.2rem; font-weight: bold; background-color: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; transition: background 0.3s; margin-bottom: 1rem; }
+    button:hover { background-color: #dc2626; }
+    #console { background: #1e293b; color: #10b981; padding: 1rem; border-radius: 8px; height: 300px; overflow-y: auto; font-family: monospace; margin-top: 1rem; }
+    .log-restored { color: #f59e0b; font-weight: bold; } /* Color naranja para la restauración */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🛠️ QA Tester - Prueba del Caos</h2>
+    <button id="btnPanic">🚨 ACTIVAR BOTÓN DE PÁNICO 🚨</button>
+    <p style="font-size: 0.9em; color: #666;">Usuario simulado: <strong>user_tfg_2026_x</strong></p>
+    
+    <div id="console"></div>
+  </div>
+
+  <script>
+    const logger = document.getElementById('console');
+    function logMessage(msg, className = '') {
+      logger.innerHTML += `<div class="${className}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+      logger.scrollTop = logger.scrollHeight;
+    }
+
+    // 1. CONEXIÓN CON IDENTIFICACIÓN (NUEVO)
+    // Pasamos el userId en la query para que el 'portero' de NestJS sepa quiénes somos
+    logMessage('🟡 Intentando conectar al Gateway...');
+    const socket = io('http://localhost:3000', {
+      transports: ['websocket', 'polling'],
+      query: { userId: 'user_tfg_2026_x' } 
+    });
+
+    socket.on('connect', () => {
+      logMessage(`🟢 Conectado. Mi Socket ID es: ${socket.id}`);
+    });
+
+    socket.on('disconnect', () => {
+      logMessage('🔴 Desconectado del servidor.', 'log-restored');
+    });
+
+    // 2. ESCUCHANDO LA RESTAURACIÓN DE REDIS (NUEVO)
+    // Si entramos y teníamos una alerta viva, el backend disparará esto
+    socket.on('alert_restored', (data) => {
+      logMessage(`🔥 ¡MAGIA! ESTADO RESTAURADO: ${data.message} (AlertID: ${data.alertId})`, 'log-restored');
+    });
+
+    socket.on('alert_acknowledgment', (response) => {
+      logMessage(`📥 Respuesta del Backend: ${JSON.stringify(response)}`);
+    });
+
+    // 3. EMISIÓN DE LA ALERTA
+    document.getElementById('btnPanic').addEventListener('click', () => {
+      const payload = {
+        userId: 'user_tfg_2026_x',
+        eventId: 'event_concierto_madrid',
+        location: { latitude: 40.4168, longitude: -3.7038 },
+        timestamp: new Date().toISOString()
+      };
+
+      logMessage('🚀 Emitiendo evento "send_panic_alert"...');
+      socket.emit('send_panic_alert', payload);
+    });
+  </script>
+</body>
+</html>
