@@ -12,6 +12,11 @@ export const AlertStatus = {
 
 // Extraemos el tipo literal ('PENDING' | 'ASSIGNED' | 'RESOLVED')
 export type AlertStatus = typeof AlertStatus[keyof typeof AlertStatus];
+export enum AlertStatus {
+  PENDING = 'PENDING',     // Alerta recibida, buscando médico
+  ASSIGNED = 'ASSIGNED',   // Médico en camino
+  RESOLVED = 'RESOLVED',   // Falsa alarma o emergencia atendida
+}
 
 /**
  * Coordenadas geográficas estándar
