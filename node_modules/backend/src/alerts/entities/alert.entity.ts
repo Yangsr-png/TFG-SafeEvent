@@ -3,9 +3,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
-@Entity('panic_alerts') // Nombre real de la tabla en PostgreSQL
+@Entity('panic_alerts') 
+// 1. ÍNDICE OBLIGATORIO: Transforma una búsqueda O(N) que mata la BD en una búsqueda O(log N) casi instantánea.
+@Index(['userId', 'status'])
 export class Alert {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -27,4 +31,8 @@ export class Alert {
 
   @CreateDateColumn()
   createdAt!: Date;
+
+  // 2. COLUMNA DE TELEMETRÍA OBLIGATORIA: TypeORM la actualizará sola cada vez que el GPS envíe un nuevo latido (UPSERT).
+  @UpdateDateColumn()
+  updatedAt!: Date;
 }
