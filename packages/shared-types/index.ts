@@ -2,7 +2,16 @@
 
 /**
  * Estados posibles de una emergencia
+ * (Refactorizado de enum a Const Object para compatibilidad estricta con empaquetadores)
  */
+export const AlertStatus = {
+  PENDING: 'PENDING',   
+  ASSIGNED: 'ASSIGNED',   
+  RESOLVED: 'RESOLVED',   
+} as const;
+
+// Extraemos el tipo literal ('PENDING' | 'ASSIGNED' | 'RESOLVED')
+export type AlertStatus = typeof AlertStatus[keyof typeof AlertStatus];
 export enum AlertStatus {
   PENDING = 'PENDING',     // Alerta recibida, buscando médico
   ASSIGNED = 'ASSIGNED',   // Médico en camino
