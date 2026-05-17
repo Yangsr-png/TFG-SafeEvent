@@ -64,10 +64,11 @@ export default function AdminDashboard() {
     let phone = null;
 
     if (rawId.startsWith('BEGIN:VCARD')) {
-      const nameMatch = rawId.match(/FN[;:]+([^\n\r]+)/);
+      // CORRECCIÓN: Ignora parámetros como CHARSET=UTF-8
+      const nameMatch = rawId.match(/FN(?:;[^:]*)?:([^\n\r]+)/);
       name = nameMatch ? nameMatch[1].trim() : 'Asistente Desconocido';
 
-      const phoneMatch = rawId.match(/TEL[;A-Z]*:([^\n\r]+)/);
+      const phoneMatch = rawId.match(/TEL(?:;[^:]*)?:([^\n\r]+)/);
       if (phoneMatch) {
         phone = phoneMatch[1].trim();
       }

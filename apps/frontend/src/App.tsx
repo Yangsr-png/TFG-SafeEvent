@@ -28,7 +28,8 @@ export default function App() {
     if (!rawText.startsWith('BEGIN:VCARD')) {
       return rawText;
     }
-    const nameMatch = rawText.match(/FN[;:]+([^\n\r]+)/);
+    // CORRECCIÓN: Ignora los parámetros extra antes de los dos puntos
+    const nameMatch = rawText.match(/FN(?:;[^:]*)?:([^\n\r]+)/);
     return nameMatch ? nameMatch[1].trim() : "Asistente Desconocido";
   };
 
