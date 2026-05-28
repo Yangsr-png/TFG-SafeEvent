@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite'
+/// <reference types="vitest" />
+import { defineConfig } from 'vitest/config' // <--- EL CAMBIO ESTÁ AQUÍ
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -28,5 +29,15 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+
+  optimizeDeps: {
+    exclude: ['@safe-event/shared-types']
+  },
+
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/setupTests.ts',
+  }
 })
