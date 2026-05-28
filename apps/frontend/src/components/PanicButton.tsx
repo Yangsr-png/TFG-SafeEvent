@@ -290,7 +290,8 @@ export default function PanicButton({ userId }: PanicButtonProps){
   // VISTA 2: ESTADO NORMAL (Botón de Pánico Limpio)
   // ------------------------------------------------------------------
   return (
-    <div className="flex flex-col items-center justify-between min-h-screen bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black p-6 relative overflow-hidden font-sans selection:bg-red-500/30">
+    // AQUÍ ESTÁ EL CAMBIO: 'pb-48' empujará la tarjeta mucho más arriba 
+    <div className="flex flex-col items-center justify-between min-h-screen bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-6 pt-6 pb-48 relative overflow-hidden font-sans selection:bg-red-500/30">
       
       {/* Fondo decorativo premium: Malla tecnológica y Halo radial */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
@@ -358,7 +359,7 @@ export default function PanicButton({ userId }: PanicButtonProps){
       </main>
 
       {/* Footer: Tarjeta Flotante Glassmorphism */}
-      <footer className="w-full max-w-md relative z-10 pb-6 text-center">
+      <footer className="w-full max-w-md relative z-10 text-center">
         <div className={`bg-slate-900/60 backdrop-blur-xl border transition-colors duration-300 rounded-3xl p-6 shadow-2xl ${isPressing ? 'border-red-500/40 bg-red-950/30' : 'border-slate-800'}`}>
           <h3 className="text-white font-bold text-lg mb-1.5 tracking-tight">Solicitar Asistencia</h3>
           <p className="text-slate-400 text-sm font-medium leading-relaxed">
