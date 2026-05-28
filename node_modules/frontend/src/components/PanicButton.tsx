@@ -212,7 +212,8 @@ export default function PanicButton({ userId }: PanicButtonProps){
            <div className="text-xs font-mono text-slate-500">ID: {userId.substring(0, 6)}</div>
         </header>
 
-        <main className="flex-1 flex flex-col items-center p-6 w-full max-w-md mx-auto">
+        {/* CAMBIO AQUÍ: 'px-6 pt-6 pb-40' para dejar todo el espacio inferior libre para los botones de Admin */}
+        <main className="flex-1 flex flex-col items-center px-6 pt-6 pb-40 w-full max-w-md mx-auto">
            
            {/* Animación de Radar Central */}
            <div className="relative flex items-center justify-center w-40 h-40 mt-6 mb-8">
@@ -276,7 +277,7 @@ export default function PanicButton({ userId }: PanicButtonProps){
            <div className="mt-auto pt-8 w-full">
               <button 
                 onClick={cancelEmergency} 
-                className="w-full py-4 rounded-xl font-semibold text-slate-300 bg-slate-800/50 border border-slate-700 hover:bg-slate-800 hover:text-white transition-all active:scale-95"
+                className="w-full py-4 rounded-xl font-semibold text-slate-300 bg-slate-800/50 border border-slate-700 hover:bg-slate-800 hover:text-white transition-all active:scale-95 shadow-lg"
               >
                 Falsa Alarma / Cancelar
               </button>
@@ -290,14 +291,11 @@ export default function PanicButton({ userId }: PanicButtonProps){
   // VISTA 2: ESTADO NORMAL (Botón de Pánico Limpio)
   // ------------------------------------------------------------------
   return (
-    // AQUÍ ESTÁ EL CAMBIO: 'pb-48' empujará la tarjeta mucho más arriba 
     <div className="flex flex-col items-center justify-between min-h-screen bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-6 pt-6 pb-48 relative overflow-hidden font-sans selection:bg-red-500/30">
       
       {/* Fondo decorativo premium: Malla tecnológica y Halo radial */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-        {/* Grid sutil para dar aspecto de telemetría/panel de control */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff07_1px,transparent_1px),linear-gradient(to_bottom,#ffffff07_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-        {/* Halo de luz rojo apagado detrás del botón para generar profundidad */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-red-600/10 rounded-full blur-[80px]"></div>
       </div>
 
@@ -330,7 +328,7 @@ export default function PanicButton({ userId }: PanicButtonProps){
           onTouchStart={handlePressStart}
           onTouchEnd={handlePressEnd}
         >
-          {/* Anillo de progreso SVG (Ahora en tonos oscuros) */}
+          {/* Anillo de progreso SVG */}
           <svg className="absolute inset-0 w-full h-full transform -rotate-90 pointer-events-none drop-shadow-2xl">
             <circle cx="160" cy="160" r="145" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800/80" />
             <circle cx="160" cy="160" r="145" stroke="currentColor" strokeWidth="8" fill="transparent"
